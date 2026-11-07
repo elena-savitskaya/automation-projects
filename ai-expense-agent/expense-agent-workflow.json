@@ -1,0 +1,372 @@
+{
+  "name": "AI Expense Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Telegram Trigger').first().json.message.text || $('Telegram Trigger').first().json.message.caption || 'Запиши витрату з фото чека' }}",
+        "options": {
+          "systemMessage": "=Сьогоднішня дата: {{ $now }}\n\n## Роль\nТи — фінансовий асистент користувача. Твоє завдання — записувати всі витрати користувача та допомагати аналізувати їх при необхідності.\n\n## Інструменти\n1. create_expense — створює запис витрати у Google Sheets.\n2. get_all_expense — отримує всі наявні витрати для аналізу або перевірки історії.\n\n## Фото чеків\n\nЯкщо користувач надіслав фото чека, уважно прочитай його: назва магазину, перелік або загальний опис покупки, дата, сума до сплати, валюта, спосіб оплати (якщо вказано). Якщо щось не видно на фото — уточни в користувача.\n\n## Основні правила\n\n- Не записуй витрати без чіткого опису та суми.\n- Якщо не вистачає необхідних даних — задай уточнююче питання.\n- Якщо користувач відповів на уточнююче питання, продовж попередній незавершений запис.\n- Не починай новий запис, якщо користувач просто відповідає на твоє попереднє питання.\n- Не видаляй і не змінюй існуючі записи без дозволу користувача.\n\n## Обов'язкові поля витрати\n\nПеред створенням запису через create_expense перевір:\n\n- store_name — місце покупки або магазин.\n- description — опис покупки.\n- date — дата витрати.\n- payment_method — спосіб оплати.\n- total_amount — сума.\n- currency — валюта.\n\nЯкщо якогось поля немає — запитай користувача.\n\n## Форматування дати\n\nПеред записом завжди приводь дату до формату:\n\nYYYY-MM-DD\n\nПриклади:\n\n25.07.2024 → 2024-07-25\n\n31.05.2024 → 2024-05-31\n\n03.08.2026 → 2026-08-03\n\nсьогодні → використовуй поточну дату з {{ $now }}\n\nвчора → поточна дата мінус один день\n\nНіколи не записуй дату у форматі DD.MM.YYYY.\n\n## Форматування валюти\n\nВсі валюти записуй тільки у форматі:\n\nUAH\n\nЗамінюй:\n\nгрн → UAH\n\nгривні → UAH\n\nгривень → UAH\n\n₴ → UAH\n\nuah → UAH\n\nНе використовуй:\nгрн\n₴\nuah\n\nтільки:\n\nUAH\n\n## Форматування суми\n\nПоле total_amount повинно містити тільки число.\n\nПравильно:\n\n500\n\n65\n\n8018.00\n\nНеправильно:\n\n500 грн\n\n65₴\n\n8018 UAH\n\n## Спосіб оплати\n\nВикористовуй тільки:\n\nГотівка\n\nКартка\n\nЯкщо користувач не вказав спосіб оплати — запитай його.\n\n## Приклад\n\nКористувач:\n\nРесторан, вечеря 500 грн сьогодні\n\nПравильний запис:\n\nstore_name:\nресторан\n\ndescription:\nВечеря\n\ndate:\n2026-08-04\n\npayment_method:\nГотівка\n\ntotal_amount:\n500\n\ncurrency:\nUAH\n\n## Відповідь користувачу\n\nПісля успішного створення витрати відповідай:\n\n\"Витрата успішно додана: [сума] [валюта], [опис], [дата]\"\n\nПриклад:\n\n\"Витрата успішно додана: 500 UAH, Вечеря, 2026-08-04\"\n\nВідповідай коротко і зрозуміло.",
+          "passthroughBinaryImages": true
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        688,
+        0
+      ],
+      "id": "41266ee6-339e-46f5-8005-ea2cfac6fd60",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Telegram Trigger').first().json.message.chat.id }}",
+        "contextWindowLength": 20
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        640,
+        352
+      ],
+      "id": "28392257-c1ed-4d91-8af2-3d8700375958",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Інструмент для створення витрат у Google Sheets",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_EXPENSES_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Трекер фінансів",
+          "cachedResultUrl": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Витрати",
+          "cachedResultUrl": ""
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "store_name": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('store_name', ``, 'string') }}",
+            "description": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('description', ``, 'string') }}",
+            "data": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('data', ``, 'string') }}",
+            "payment_method": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('payment_method', ``, 'string') }}",
+            "total_amount": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('total_amount', ``, 'string') }}",
+            "currency": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('currency', ``, 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "store_name",
+              "displayName": "store_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "description",
+              "displayName": "description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "data",
+              "displayName": "data",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "payment_method",
+              "displayName": "payment_method",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "total_amount",
+              "displayName": "total_amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "currency",
+              "displayName": "currency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        848,
+        240
+      ],
+      "id": "524e1c58-21b0-401e-861f-cba92ad6701d",
+      "name": "create_expense"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Інструмент для отримання всіх витрат",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_EXPENSES_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Трекер фінансів",
+          "cachedResultUrl": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Витрати",
+          "cachedResultUrl": ""
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        992,
+        224
+      ],
+      "id": "f158a9b5-b611-40c6-b22a-a92037c20401",
+      "name": "get_all_expense"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        0,
+        0
+      ],
+      "id": "f49a1b72-ef69-4ba0-8a7f-28b6f01b8eac",
+      "name": "Telegram Trigger"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        512,
+        208
+      ],
+      "id": "e3b0c07b-3447-465d-a1f7-2a7219196dd5",
+      "name": "Google Gemini Chat Model",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').first().json.message.chat.id }}",
+        "text": "={{ $json.output }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1040,
+        0
+      ],
+      "id": "672f4be8-401a-40bf-b223-1a2574b5f66d",
+      "name": "Send a text message"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cabc7f62-a1ae-4036-99a8-045d5a5787bd",
+              "leftValue": "={{ $json.message.photo }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "2cc0bdb0-4c57-4220-b681-27895e820806",
+      "name": "Has photo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "fileId": "={{ $json.message.photo.last().file_id }}",
+        "additionalFields": {}
+      },
+      "id": "af8e9e44-9c5b-4c48-9e9a-2b1080808c85",
+      "name": "Download receipt photo",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        448,
+        -176
+      ]
+    }
+  ],
+  "connections": {
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create_expense": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_all_expense": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Has photo?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has photo?": {
+      "main": [
+        [
+          {
+            "node": "Download receipt photo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download receipt photo": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

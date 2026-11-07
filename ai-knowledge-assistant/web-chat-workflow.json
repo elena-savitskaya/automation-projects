@@ -1,0 +1,195 @@
+{
+  "name": "FORMA Assistant — Client Chat",
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "mode": "hostedChat",
+        "authentication": "none",
+        "initialMessages": "Вітаємо у FORMA Barbershop! 👋\nЯ онлайн-адміністратор. Підкажу ціни, майстрів, графік роботи чи допоможу обрати послугу.",
+        "options": {
+          "title": "FORMA Barbershop",
+          "subtitle": "Онлайн-адміністратор · відповідаємо 24/7",
+          "inputPlaceholder": "Напишіть питання…"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ],
+      "id": "c21c30b8-4156-4812-8e50-1c29f970a7b5",
+      "name": "When chat message received"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "Ти — онлайн-адміністратор FORMA Barbershop (Київ). Відповідаєш клієнтам на питання про послуги, ціни, майстрів, графік, адресу, запис, скасування, сертифікати, знижки та косметику.\n\nПравила:\n- До кожного повідомлення клієнта додаються фрагменти з бази знань FORMA. Ціни, імена майстрів, графік і правила бери тільки з цих фрагментів і з попередніх повідомлень розмови. Ніколи не називай цифр, яких там немає.\n- Ціни завжди вказуй у гривнях і уточнюй, що вартість залежить від рівня майстра (Barber / Senior / Top).\n- Якщо інформації немає в базі знань, не вигадуй: скажи, що уточниш у адміністратора, і запропонуй написати адміністратору.\n\nДопомога з вибором послуги:\n- Якщо клієнт не знає, що обрати, або питає, які є послуги, коротко перелічи основні групи: стрижки, борода та гоління, комплекси, додаткові послуги — з ціною «від».\n- Потім постав 1–2 уточнювальні питання: яка зараз довжина волосся і чого хочеться (освіжити форму, коротко, фейд, подовжена стрижка), чи потрібна борода, чи це стрижка для дитини.\n- Після відповіді порекомендуй одну конкретну послугу (або комплекс, якщо так вигідніше), її тривалість і ціни за рівнями. Якщо клієнт прийшов уперше і не має побажань щодо майстра — порадь Senior Barber.\n\nЗапис:\n- Ти не маєш доступу до розкладу і не можеш записати клієнта сам. Не питай про зручний день і час і не обіцяй автоматичного бронювання.\n- Для запису направляй на онлайн-форму на сайті або до адміністратора (Telegram чи телефон, щодня 09:00–21:00).\n\nСтиль:\n- Відповідай мовою клієнта, коротко, дружньо, без зайвих вступів."
+        },
+        "promptType": "define",
+        "text": "={{ $json.chatInput }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        660,
+        0
+      ],
+      "id": "7a629f92-16c0-469f-b4d9-ffc7d036572e",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        600,
+        220
+      ],
+      "id": "a51845f2-8410-4191-b199-150859c41e89",
+      "name": "Google Gemini Chat Model",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        740,
+        220
+      ],
+      "id": "acffda1a-c5c8-450b-bd44-390435a80a7c",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "mode": "load",
+        "pineconeIndex": {
+          "__rl": true,
+          "value": "YOUR_PINECONE_INDEX",
+          "mode": "list",
+          "cachedResultName": "YOUR_PINECONE_INDEX"
+        },
+        "prompt": "={{ $('When chat message received').first().json.chatInput }}",
+        "topK": 6,
+        "options": {
+          "pineconeNamespace": "forma_kb"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1.3,
+      "position": [
+        220,
+        0
+      ],
+      "id": "7e3b5c5d-4ed9-451f-a155-87cebb261600",
+      "name": "Search knowledge base",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-embedding-001"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        240,
+        220
+      ],
+      "id": "51fbf0a5-8124-43c9-b3bb-53b54d727507",
+      "name": "Embeddings Google Gemini"
+    },
+    {
+      "id": "2c6c7b2b-9e18-47ec-a21c-fa94f5adac61",
+      "name": "Build context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const t = $('When chat message received').first().json;\nconst docs = $input.all().map(i => i.json?.document?.pageContent).filter(Boolean);\nreturn [{ json: { sessionId: t.sessionId, chatInput: 'Питання клієнта: ' + t.chatInput + '\\n\\n---\\nФрагменти з бази знань FORMA (використовуй тільки їх):\\n' + (docs.length ? docs.join('\\n\\n') : '(нічого не знайдено)') } }];"
+      }
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Search knowledge base",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Search knowledge base",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search knowledge base": {
+      "main": [
+        [
+          {
+            "node": "Build context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build context": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
